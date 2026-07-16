@@ -9,6 +9,25 @@ SOURCE_DIR="$BUILD_ROOT/immortalwrt"
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/output/$(date -u +%Y%m%d-%H%M%S)}"
 JOBS="${JOBS:-$(nproc)}"
 
+require_config_option() {
+	local config_file="$1"
+	local option="$2"
+
+	if ! grep -Eq "^${option}=(y|m)$" "$config_file"; then
+		echo "ERROR: required option is missing from $config_file: $option" >&2
+		exit 1
+	fi
+}
+
+run_make_stage() {
+	local target="$1"
+
+	if ! make -j"$JOBS" "$target"; then
+		echo "Parallel build failed for $target; retrying serially with verbose output." >&2
+		make -j1 V=s "$target"
+	fi
+}
+
 if [[ -e "$SOURCE_DIR" ]]; then
 	echo "ERROR: build source already exists: $SOURCE_DIR" >&2
 	echo 'Choose a new BUILD_ROOT so an earlier tree is not overwritten.' >&2
@@ -34,7 +53,27 @@ cd "$SOURCE_DIR"
 ./scripts/feeds install -a
 cp "$PROJECT_ROOT/configs/ax6000-2g-512m.config" .config
 make defconfig
+require_config_option .config CONFIG_PACKAGE_kmod-mediatek_hnat
+require_config_option .config CONFIG_PACKAGE_kmod-ipt-nat
 make download -j"$JOBS"
+
+echo 'Preparing the toolchain and validating the resolved Linux kernel configuration.'
+run_make_stage tools/install
+run_make_stage toolchain/install
+run_make_stage target/linux/dtb
+
+shopt -s nullglob
+kernel_configs=("$SOURCE_DIR"/build_dir/target-*/linux-mediatek_filogic/linux-*/.config)
+shopt -u nullglob
+
+if [[ "${#kernel_configs[@]}" -ne 1 ]]; then
+	echo "ERROR: expected exactly one resolved Linux kernel config, found ${#kernel_configs[@]}." >&2
+	exit 1
+fi
+
+require_config_option "${kernel_configs[0]}" CONFIG_NET_MEDIATEK_HNAT
+require_config_option "${kernel_configs[0]}" CONFIG_IP_NF_NAT
+echo "Kernel config preflight passed: ${kernel_configs[0]}"
 
 if ! make -j"$JOBS"; then
 	echo 'Parallel build failed; retrying serially with verbose output.' >&2
