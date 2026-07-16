@@ -1,26 +1,45 @@
 diff --git a/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi b/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
-index 6c6f9050de..f8d69fd353 100644
 --- a/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
 +++ b/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
 @@ -21,7 +21,7 @@
  	};
  
- 	memory {
+ 	memory@40000000 {
 -		reg = <0 0x40000000 0 0x20000000>;
 +		reg = <0 0x40000000 0 0x80000000>;
+ 		device_type = "memory";
  	};
  
- 	keys {
 diff --git a/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts b/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
-index d2f1352a1f..b466346a1b 100644
 --- a/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
 +++ b/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
-@@ -30,7 +30,7 @@
- 
- 	partition@600000 {
- 		label = "ubi";
--		reg = <0x600000 0x6e00000>;
-+		reg = <0x600000 0x1ea00000>;
- 	};
- 
+@@ -13,10 +13,28 @@
+ 	bootargs-append = " root=/dev/fit0 rootwait";
  };
+ 
++&spi_nand_flash {
++	mediatek,nmbm;
++	mediatek,bmt-max-ratio = <1>;
++	mediatek,bmt-max-reserved-blocks = <64>;
++};
++
+ &partitions {
+ 	partition@580000 {
++		label = "crash";
++		reg = <0x580000 0x40000>;
++		read-only;
++	};
++
++	partition@5c0000 {
++		label = "crash_log";
++		reg = <0x5c0000 0x40000>;
++		read-only;
++	};
++
++	partition@600000 {
+ 		compatible = "linux,ubi";
+-		reg = <0x580000 0x7a80000>;
++		reg = <0x600000 0x1ea00000>;
+ 		label = "ubi";
+ 
+ 		volumes {

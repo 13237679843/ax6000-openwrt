@@ -1,4 +1,4 @@
-name: Build Redmi AX6000 2G-512M firmware
+name: Build official OpenWrt for Redmi AX6000 2G-512M
 
 on:
   workflow_dispatch:
@@ -49,10 +49,19 @@ jobs:
           done
           sudo apt-get install -y "${available[@]}"
 
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ax6000-openwrt-25.12.5-${{ hashFiles('configs/**', 'patches/**', 'scripts/**') }}
+          restore-keys: |
+            ax6000-openwrt-25.12.5-
+
       - name: Build firmware
         env:
           BUILD_ROOT: ${{ runner.temp }}/ax6000-build
           OUTPUT_DIR: ${{ github.workspace }}/output
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
           JOBS: '2'
         run: |
           chmod +x scripts/build.sh scripts/verify-layout.sh
@@ -61,7 +70,7 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: ax6000-2g-512m-firmware
+          name: openwrt-25.12.5-ax6000-2g-512m-firmware
           path: output/
           if-no-files-found: error
           retention-days: 14
