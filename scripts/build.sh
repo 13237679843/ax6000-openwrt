@@ -29,6 +29,17 @@ run_make_stage() {
 	fi
 }
 
+fetch_package() {
+	local repo="$1"
+	local commit="$2"
+	local destination="$3"
+
+	git init "$destination"
+	git -C "$destination" remote add origin "$repo"
+	git -C "$destination" fetch --depth=1 origin "$commit"
+	git -C "$destination" checkout --detach FETCH_HEAD
+}
+
 if [[ -e "$SOURCE_DIR" ]]; then
 	echo "ERROR: build source already exists: $SOURCE_DIR" >&2
 	echo 'Choose a new BUILD_ROOT so an earlier tree is not overwritten.' >&2
@@ -53,6 +64,21 @@ cp "$FEEDS_CONFIG" "$SOURCE_DIR/feeds.conf"
 cd "$SOURCE_DIR"
 ./scripts/feeds update -a
 ./scripts/feeds install -a
+
+mkdir -p package/custom
+fetch_package \
+	"https://github.com/immortalwrt/homeproxy.git" \
+	"7826c263609cf413c355eea6fd8cc1255b85f5c7" \
+	"package/custom/luci-app-homeproxy"
+fetch_package \
+	"https://github.com/jerrykuku/luci-theme-argon.git" \
+	"f92905520f8fcb60b7f0c4776e9ff8dd77a6d49f" \
+	"package/custom/luci-theme-argon"
+fetch_package \
+	"https://github.com/jerrykuku/luci-app-argon-config.git" \
+	"3e099a37c3f71d0de677f1b6b0f4bffd57d91dac" \
+	"package/custom/luci-app-argon-config"
+
 cp "$PROJECT_ROOT/configs/ax6000-2g-512m.config" .config
 make defconfig
 

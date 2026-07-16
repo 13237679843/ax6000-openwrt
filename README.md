@@ -12,7 +12,8 @@
 - 设备：`xiaomi_redmi-router-ax6000-ubootmod`
 
 官方 feeds 和所有第三方插件均固定到明确提交，具体版本见
-[`configs/openwrt-25.12.5.feeds.conf`](configs/openwrt-25.12.5.feeds.conf)。
+[`configs/openwrt-25.12.5.feeds.conf`](configs/openwrt-25.12.5.feeds.conf)
+和 [`scripts/build.sh`](scripts/build.sh)。
 
 ## 硬件布局修改
 
