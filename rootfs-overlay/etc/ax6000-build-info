@@ -1,0 +1,7 @@
+Device: Redmi AX6000
+Hardware: 2GiB RAM / 512MiB SPI-NAND
+Boot layout: custom U-Boot NMBM 512rom-490m
+RAM range: 0x40000000 + 0x80000000
+UBI range: 0x600000 + 0x1ea00000
+Source: immortalwrt/immortalwrt
+Source commit: 6d9a475729f233d8d6e2d24027b49d041399610e
