@@ -59,6 +59,7 @@ make defconfig
 required_options=(
 	CONFIG_TARGET_mediatek_filogic_DEVICE_xiaomi_redmi-router-ax6000-ubootmod
 	CONFIG_TARGET_ROOTFS_INITRAMFS
+	CONFIG_LUCI_LANG_zh_Hans
 	CONFIG_PACKAGE_luci-ssl-openssl
 	CONFIG_PACKAGE_luci-i18n-firewall-zh-cn
 	CONFIG_PACKAGE_luci-app-package-manager
