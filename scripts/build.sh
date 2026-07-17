@@ -210,20 +210,16 @@ for package in dropbear openssh-sftp-server; do
 	fi
 done
 
-# The installer build also emits a minimal sysupgrade image. Remove it and
-# its metadata so the second build cannot accidentally publish stale output.
-rm -f \
-	"$TARGET_DIR"/*xiaomi_redmi-router-ax6000-ubootmod-squashfs-sysupgrade.itb \
-	"$TARGET_DIR"/*xiaomi_redmi-router-ax6000-ubootmod.manifest \
-	"$TARGET_DIR/config.buildinfo" \
-	"$TARGET_DIR/profiles.json"
-
 echo 'Building the permanent full-featured sysupgrade image.'
 cp "$FULL_CONFIG" .config
+if ! grep -Fxq '# CONFIG_TARGET_ROOTFS_INITRAMFS is not set' .config; then
+	echo 'ERROR: the full firmware config must explicitly disable initramfs.' >&2
+	exit 1
+fi
 make defconfig
 
-if grep -Eq '^CONFIG_TARGET_ROOTFS_INITRAMFS=(y|m)$' .config; then
-	echo 'ERROR: the full firmware config must not build another initramfs.' >&2
+if ! grep -Fxq '# CONFIG_TARGET_ROOTFS_INITRAMFS is not set' .config; then
+	echo 'ERROR: OpenWrt defconfig did not disable initramfs for the full firmware.' >&2
 	exit 1
 fi
 
@@ -251,6 +247,9 @@ full_required_options=(
 for option in "${full_required_options[@]}"; do
 	require_config_option .config "$option"
 done
+
+echo 'Cleaning installer build products while preserving downloads and the toolchain.'
+make clean
 
 run_make_stage download
 build_firmware
