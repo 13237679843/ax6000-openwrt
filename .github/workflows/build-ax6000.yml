@@ -70,7 +70,7 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: openwrt-25.12.5-ax6000-2g-512m-firmware
+          name: openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-v2
           path: output/
           if-no-files-found: error
           retention-days: 14

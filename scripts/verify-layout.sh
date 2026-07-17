@@ -20,4 +20,14 @@ if grep -Fq 'reg = <0x580000 0x7a80000>;' "$LAYOUT_DTS"; then
 	exit 1
 fi
 
-echo 'Verified: official OpenWrt profile, 2GiB RAM, NMBM, and 490MiB UBI at 0x600000.'
+ubi_start=$((0x600000))
+ubi_size=$((0x1ea00000))
+flash_size=$((0x20000000))
+nmbm_tail_reserve=$((flash_size - ubi_start - ubi_size))
+
+if (( nmbm_tail_reserve != 0x1000000 )); then
+	echo "ERROR: expected a 16MiB NAND tail reserve, got $nmbm_tail_reserve bytes." >&2
+	exit 1
+fi
+
+echo 'Verified: 2GiB RAM, NMBM, 490MiB UBI at 0x600000, and 16MiB NAND tail reserve.'
