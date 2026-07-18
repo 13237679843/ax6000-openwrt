@@ -53,7 +53,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: ax6000-openwrt-25.12.5-${{ hashFiles('configs/**', 'patches/**', 'scripts/**') }}
+          key: ax6000-openwrt-25.12.5-${{ hashFiles('configs/**', 'patches/**', 'rootfs-overlay/**', 'scripts/**') }}
           restore-keys: |
             ax6000-openwrt-25.12.5-
 
@@ -70,7 +70,7 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-v2
+          name: openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-24-v3
           path: output/
           if-no-files-found: error
           retention-days: 14

@@ -1,6 +1,7 @@
 #!/bin/sh
 
 uci -q set network.lan.ipaddr='192.168.6.1'
+uci -q set network.lan.netmask='255.255.255.0'
 uci -q commit network
 
 uci -q set system.@system[0].hostname='AX6000-2G-512M'

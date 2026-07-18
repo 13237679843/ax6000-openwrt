@@ -39,7 +39,7 @@ diff --git a/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootm
 +	partition@600000 {
  		compatible = "linux,ubi";
 -		reg = <0x580000 0x7a80000>;
-+		reg = <0x600000 0x1ea00000>;
++		reg = <0x600000 0x1da00000>;
  		label = "ubi";
  
  		volumes {

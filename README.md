@@ -3,7 +3,7 @@
 本项目为已经升级到 2GiB RAM、512MiB SPI-NAND，并使用自定义 U-Boot
 `512rom-490m` 布局的 Redmi AX6000 构建固件。
 
-默认 LAN 管理地址为 `192.168.6.1`，避免与常见的
+默认 LAN 管理地址为 `192.168.6.1/24`，避免与常见的
 `192.168.1.1` 光猫/上级路由器冲突。
 
 ## 固定版本
@@ -20,14 +20,19 @@
 
 ## 硬件布局修改
 
-项目只修改设备树中的硬件容量描述：
+项目只修改设备树中的硬件容量和分区描述：
 
 1. RAM 从 `0x20000000`（512MiB）改为 `0x80000000`（2GiB）。
 2. 为 SPI-NAND 启用 NMBM，保留 `crash` 和 `crash_log`。
-3. UBI 使用 `0x600000 + 0x1ea00000`，对应 U-Boot 的 `512rom-490m` 布局。
+3. 设备中已有的 NMBM 元数据把管理区起点固定在 `0x1e000000`，因此
+   512MiB 物理 NAND 向 Linux 暴露 480MiB 逻辑空间。
+4. UBI 使用 `0x600000 + 0x1da00000`（474MiB），恰好结束于
+   `0x1e000000`，不会越过 NMBM 逻辑设备边界。
 
-以上 NMBM 分区顺序与设备中实测的 U-Boot 2022.07-rc3
-`512rom-490m` 布局字符串一致。
+U-Boot 网页仍必须选择实测的 `512rom-490m` 布局；这里的 `490m` 是
+U-Boot 布局名称，不是 Linux 中 `mtd7` 的可用容量。v2 曾按该名称直接
+声明 490MiB UBI，内核实际会将它截断为 474MiB；v3 显式使用实测边界，
+从而消除 `extends beyond` / `size truncated` 启动警告。
 
 不会生成或发布 BL2、FIP、U-Boot、Factory、Bdata 或无线校准分区镜像。
 
@@ -58,7 +63,7 @@ Actions 页面手动运行 `Build official OpenWrt for Redmi AX6000 2G-512M`。
 
 成功后下载 artifact：
 
-`openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-v2`
+`openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-24-v3`
 
 构建分为两个阶段：
 
@@ -99,7 +104,8 @@ BUILD_ROOT=/path/to/build OUTPUT_DIR=/path/to/output JOBS=4 ./scripts/build.sh
 
 1. 在 U-Boot 网页确认布局为 `512rom-490m`。
 2. 上传 `*-initramfs-factory.ubi`，不要先上传 sysupgrade 文件。
-3. 临时系统启动后访问 `192.168.6.1`。如果电脑没有自动取得地址，
+3. 临时系统启动后通过 SSH 访问 `192.168.6.1`。精简安装器不包含 LuCI
+   网页界面。如果电脑没有自动取得地址，
    可临时设置为 `192.168.6.2/24`，然后连接：
 
    ```sh
@@ -109,14 +115,21 @@ BUILD_ROOT=/path/to/build OUTPUT_DIR=/path/to/output JOBS=4 ./scripts/build.sh
 4. 通过 SSH 检查：
 
    ```sh
+   ip -4 addr show dev br-lan
    grep MemTotal /proc/meminfo
-   dmesg | grep -Ei 'spi-nand|nmbm'
+   dmesg | grep -Ei 'spi-nand|nmbm|extends beyond|size truncated'
    cat /proc/mtd
    ubinfo -a
    ```
 
-5. 只有确认约 2GB RAM、物理 NAND 为 512MiB、NMBM 正常，以及 UBI
-   分区接近 490MiB 后，才上传 `*-squashfs-sysupgrade.itb`。
+   第一条命令必须显示 `inet 192.168.6.1/24`，否则不要继续安装正式系统。
+
+5. 只有确认约 2GB RAM、物理 NAND 为 512MiB、NMBM 管理区从
+   `0x1e000000` 开始、`/proc/mtd` 中 `mtd7` 大小为 `1da00000`
+   （474MiB），并且没有分区越界或截断警告后，才上传
+   `*-squashfs-sysupgrade.itb`。在零坏块情况下，`ubinfo` 显示的
+   UBI 总 LEB 容量约为 459.2MiB；它会因 PEB/LEB 头、坏块预留和
+   已创建的卷而小于 474MiB，这是正常现象。
 6. 将 sysupgrade 文件传到临时系统并安装：
 
    ```sh
@@ -125,7 +138,7 @@ BUILD_ROOT=/path/to/build OUTPUT_DIR=/path/to/output JOBS=4 ./scripts/build.sh
    sysupgrade -n /tmp/firmware.itb
    ```
 
-7. 首次安装不要保留旧配置。重启后正式系统仍使用 `192.168.6.1`。
+7. 首次安装不要保留旧配置。重启后正式系统仍使用 `192.168.6.1/24`。
 
 不要刷写名称包含 `preloader`、`bl31`、`uboot` 或 `fip` 的文件。本项目的
 artifact 不会包含这些危险文件。

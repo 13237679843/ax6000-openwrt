@@ -7,6 +7,7 @@ SOURCE_COMMIT="f0a60eee2fe051741c643ea6118718aae1ef17fb"
 FEEDS_CONFIG="$PROJECT_ROOT/configs/openwrt-25.12.5.feeds.conf"
 INSTALLER_CONFIG="$PROJECT_ROOT/configs/ax6000-2g-512m-installer.config"
 FULL_CONFIG="$PROJECT_ROOT/configs/ax6000-2g-512m.config"
+LAN_DEFAULTS="$PROJECT_ROOT/rootfs-overlay/etc/uci-defaults/99-ax6000-ui"
 BUILD_ROOT="${BUILD_ROOT:-$PROJECT_ROOT/work}"
 SOURCE_DIR="$BUILD_ROOT/openwrt"
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/output/$(date -u +%Y%m%d-%H%M%S)}"
@@ -19,6 +20,16 @@ require_config_option() {
 
 	if ! grep -Eq "^${option}=y$" "$config_file"; then
 		echo "ERROR: required option is missing from $config_file: $option" >&2
+		exit 1
+	fi
+}
+
+require_exact_line() {
+	local file="$1"
+	local line="$2"
+
+	if ! grep -Fxq "$line" "$file"; then
+		echo "ERROR: required line is missing from $file: $line" >&2
 		exit 1
 	fi
 }
@@ -85,6 +96,13 @@ fi
 
 mkdir -p "$BUILD_ROOT" "$OUTPUT_DIR"
 
+if [[ ! -x "$LAN_DEFAULTS" ]]; then
+	echo "ERROR: LAN defaults script must be executable: $LAN_DEFAULTS" >&2
+	exit 1
+fi
+require_exact_line "$LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1'"
+require_exact_line "$LAN_DEFAULTS" "uci -q set network.lan.netmask='255.255.255.0'"
+
 git init "$SOURCE_DIR"
 git -C "$SOURCE_DIR" remote add origin "$SOURCE_REPO"
 git -C "$SOURCE_DIR" fetch --depth=1 origin "$SOURCE_COMMIT"
@@ -97,6 +115,14 @@ git -C "$SOURCE_DIR" apply "$PROJECT_ROOT/patches/100-ax6000-2g-512m.patch"
 mkdir -p "$SOURCE_DIR/files"
 cp -a "$PROJECT_ROOT/rootfs-overlay/." "$SOURCE_DIR/files/"
 cp "$FEEDS_CONFIG" "$SOURCE_DIR/feeds.conf"
+
+COPIED_LAN_DEFAULTS="$SOURCE_DIR/files/etc/uci-defaults/99-ax6000-ui"
+if [[ ! -x "$COPIED_LAN_DEFAULTS" ]]; then
+	echo "ERROR: copied LAN defaults script is not executable: $COPIED_LAN_DEFAULTS" >&2
+	exit 1
+fi
+require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1'"
+require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q set network.lan.netmask='255.255.255.0'"
 
 cd "$SOURCE_DIR"
 ./scripts/feeds update -a
@@ -319,7 +345,10 @@ cat > "$OUTPUT_DIR/BUILD-SUMMARY.txt" <<EOF
 Device: Xiaomi Redmi Router AX6000 (OpenWrt U-Boot layout)
 Hardware: 2GiB RAM / 512MiB SPI-NAND
 U-Boot layout: NMBM 512rom-490m
-Default LAN IP: 192.168.6.1
+NMBM data area: 480MiB, ending at 0x1e000000
+UBI partition: 474MiB (0x1da00000), starting at 0x600000
+Expected UBI total LEB capacity: about 459.2MiB before volumes
+Default LAN IPv4: 192.168.6.1/24 (255.255.255.0)
 Source: official OpenWrt 25.12.5
 Source commit: $SOURCE_COMMIT
 Installer: minimal initramfs with SSH/SFTP only
@@ -333,19 +362,28 @@ EOF
 cat > "$OUTPUT_DIR/FLASH-INSTRUCTIONS.txt" <<'EOF'
 1. In the U-Boot web page, select only the 512rom-490m layout.
 2. Upload *-initramfs-factory.ubi. Do not upload recovery.itb or sysupgrade.itb there.
-3. After the temporary installer boots, connect to 192.168.6.1.
+3. After the temporary installer boots, connect to 192.168.6.1
+   on the 192.168.6.0/24 LAN subnet. The installer has no LuCI web UI.
    If DHCP is unavailable, set the PC to 192.168.6.2/24.
 4. Log in with: ssh root@192.168.6.1
 5. Verify before permanent installation:
+     ip -4 addr show dev br-lan
+   The output must include: inet 192.168.6.1/24
      grep MemTotal /proc/meminfo
-     dmesg | grep -Ei 'spi-nand|nmbm'
+     dmesg | grep -Ei 'spi-nand|nmbm|extends beyond|size truncated'
      cat /proc/mtd
      ubinfo -a
+   Required storage results:
+     physical SPI-NAND: 512 MiB
+     NMBM management region: block 3840 [0x1e000000]
+     mtd7 "ubi" size: 0x1da00000 (474 MiB)
+     UBI total LEB capacity: about 459.2 MiB with zero bad blocks
+     no "extends beyond" or "size truncated" warning
 6. Copy the full image:
      scp openwrt-*-squashfs-sysupgrade.itb root@192.168.6.1:/tmp/firmware.itb
 7. Install without preserving old settings:
      sysupgrade -n /tmp/firmware.itb
-8. The permanent system also uses 192.168.6.1.
+8. The permanent system also uses 192.168.6.1/24.
 EOF
 
 rm -f "$OUTPUT_DIR/SHA256SUMS"
