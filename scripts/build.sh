@@ -342,9 +342,11 @@ for package in \
 done
 
 cat > "$OUTPUT_DIR/BUILD-SUMMARY.txt" <<EOF
-Device: Xiaomi Redmi Router AX6000 (OpenWrt U-Boot layout)
+Device: Xiaomi Redmi Router AX6000 (official OpenWrt system, custom multi-layout U-Boot)
 Hardware: 2GiB RAM / 512MiB SPI-NAND
 U-Boot layout: NMBM 512rom-490m
+Verified U-Boot: 2022.07-rc3 (2024-03-23 multi-layout build)
+Boot/rootdisk/sysupgrade UBI volume: kernel
 NMBM data area: 480MiB, ending at 0x1e000000
 UBI partition: 474MiB (0x1da00000), starting at 0x600000
 Expected UBI total LEB capacity: about 459.2MiB before volumes
@@ -369,6 +371,13 @@ cat > "$OUTPUT_DIR/FLASH-INSTRUCTIONS.txt" <<'EOF'
 5. Verify before permanent installation:
      ip -4 addr show dev br-lan
    The output must include: inet 192.168.6.1/24
+     for f in $(find /sys/firmware/devicetree/base -name volname); do tr -d '\0' < "$f"; echo; done
+   The rootdisk volume output must be: kernel
+     unset CI_METHOD CI_UBIPART CI_KERNPART
+     . /lib/upgrade/fit.sh
+     export_fitblk_bootdev
+     printf '%s %s %s\n' "$CI_METHOD" "$CI_UBIPART" "$CI_KERNPART"
+   The upgrade target output must be: ubi ubi kernel
      grep MemTotal /proc/meminfo
      dmesg | grep -Ei 'spi-nand|nmbm|extends beyond|size truncated'
      cat /proc/mtd
@@ -384,6 +393,12 @@ cat > "$OUTPUT_DIR/FLASH-INSTRUCTIONS.txt" <<'EOF'
 7. Install without preserving old settings:
      sysupgrade -n /tmp/firmware.itb
 8. The permanent system also uses 192.168.6.1/24.
+9. This v4 image intentionally uses the kernel UBI volume required by the
+   verified 2024-03-23 custom U-Boot. Do not substitute the earlier v3 image,
+   which targets a fit volume this U-Boot cannot start.
+10. If an earlier v2/v3 installer is currently running, do not sysupgrade
+    directly from it: its running device tree still targets fit. Re-enter the
+    U-Boot web page and upload this v4 initramfs-factory.ubi first.
 EOF
 
 rm -f "$OUTPUT_DIR/SHA256SUMS"

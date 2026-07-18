@@ -9,11 +9,13 @@ grep -Fq 'reg = <0 0x40000000 0 0x80000000>;' "$COMMON_DTS"
 grep -Fq 'mediatek,nmbm;' "$LAYOUT_DTS"
 grep -Fq 'mediatek,bmt-max-ratio = <1>;' "$LAYOUT_DTS"
 grep -Fq 'mediatek,bmt-max-reserved-blocks = <64>;' "$LAYOUT_DTS"
+grep -Fq 'bootargs-append = " root=/dev/fit0 rootwait";' "$LAYOUT_DTS"
 grep -Fq 'reg = <0x580000 0x40000>;' "$LAYOUT_DTS"
 grep -Fq 'reg = <0x5c0000 0x40000>;' "$LAYOUT_DTS"
 grep -Fq 'compatible = "linux,ubi";' "$LAYOUT_DTS"
 grep -Fq 'reg = <0x600000 0x1da00000>;' "$LAYOUT_DTS"
-grep -Fq 'ubi_rootdisk: ubi-volume-fit' "$LAYOUT_DTS"
+grep -Fq 'ubi_rootdisk: ubi-volume-kernel' "$LAYOUT_DTS"
+grep -Fq 'volname = "kernel";' "$LAYOUT_DTS"
 
 if grep -Fq 'reg = <0x580000 0x7a80000>;' "$LAYOUT_DTS"; then
 	echo 'ERROR: official 128MiB UBI layout is still present.' >&2
@@ -22,6 +24,16 @@ fi
 
 if grep -Fq 'reg = <0x600000 0x1ea00000>;' "$LAYOUT_DTS"; then
 	echo 'ERROR: oversized 490MiB UBI layout would cross the NMBM data boundary.' >&2
+	exit 1
+fi
+
+if grep -Fq 'volname = "fit";' "$LAYOUT_DTS"; then
+	echo 'ERROR: the 2024-03-23 custom U-Boot cannot boot the OpenWrt fit volume.' >&2
+	exit 1
+fi
+
+if grep -Fq 'ubi_rootdisk: ubi-volume-fit' "$LAYOUT_DTS"; then
+	echo 'ERROR: the rootdisk node still targets the unsupported fit UBI volume.' >&2
 	exit 1
 fi
 
@@ -42,4 +54,5 @@ if (( nmbm_management_reserve != 0x2000000 )); then
 fi
 
 echo 'Verified: 2GiB RAM, 512MiB NAND, 480MiB NMBM data area, and 474MiB UBI at 0x600000.'
+echo 'Verified: rootdisk/sysupgrade volume is kernel for the 2024-03-23 custom multi-layout U-Boot.'
 echo 'Expected UBI total LEB capacity with 128KiB PEBs is about 459.2MiB before volumes.'
