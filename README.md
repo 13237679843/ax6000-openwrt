@@ -35,6 +35,9 @@ U-Boot 布局名称，不是 Linux 中 `mtd7` 的可用容量。v2 曾按该名�
 从而消除 `extends beyond` / `size truncated` 启动警告。v4 进一步把
 rootdisk/sysupgrade UBI 卷改为 `kernel`：实机的 2024-03-23 多布局 U-Boot
 只会启动该卷，不支持后来版本才加入的 `fit` 卷回退。
+v5 将默认 LAN 地址直接保存为 CIDR 形式 `192.168.6.1/24`；实机验证表明，
+OpenWrt 25.12 会把 v4 的分离 `ipaddr`/`netmask` 写法规范化为 `/32`，
+因此不要刷入 v4。
 
 不会生成或发布 BL2、FIP、U-Boot、Factory、Bdata 或无线校准分区镜像。
 
@@ -65,7 +68,7 @@ Actions 页面手动运行 `Build official OpenWrt for Redmi AX6000 2G-512M`。
 
 成功后下载 artifact：
 
-`openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-24-kernel-v4`
+`openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-24-kernel-v5`
 
 构建分为两个阶段：
 
@@ -148,13 +151,14 @@ BUILD_ROOT=/path/to/build OUTPUT_DIR=/path/to/output JOBS=4 ./scripts/build.sh
 
 7. 首次安装不要保留旧配置。重启后正式系统仍使用 `192.168.6.1/24`。
 
-不要用早期 v3 正式镜像替代 v4：v3 会更新 `fit` 卷，而实测的
+不要使用早期 v3/v4 正式镜像：v3 会更新 `fit` 卷，而实测的
 2024-03-23 U-Boot 仍从旧 `kernel` 卷启动。
+v4 在冷启动后会把 LAN 配置成不可正常访问的 `192.168.6.1/32`。
 
-如果当前运行的是早期 v2/v3 临时安装器，不能直接从中执行 v4
+如果当前运行的是早期 v2/v3/v4 临时安装器，不能直接从中执行 v5
 `sysupgrade`：OpenWrt 会依据“当前运行内核”的旧设备树继续写入 `fit`。
-必须重新进入 U-Boot 网页，先上传 v4 的 `initramfs-factory.ubi`，启动 v4
-临时安装器并确认升级目标为 `ubi ubi kernel` 后，再安装 v4 正式镜像。
+必须重新进入 U-Boot 网页，先上传 v5 的 `initramfs-factory.ubi`，启动 v5
+临时安装器并确认升级目标为 `ubi ubi kernel` 后，再安装 v5 正式镜像。
 
 不要刷写名称包含 `preloader`、`bl31`、`uboot` 或 `fip` 的文件。本项目的
 artifact 不会包含这些危险文件。

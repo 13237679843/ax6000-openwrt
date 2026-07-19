@@ -100,8 +100,13 @@ if [[ ! -x "$LAN_DEFAULTS" ]]; then
 	echo "ERROR: LAN defaults script must be executable: $LAN_DEFAULTS" >&2
 	exit 1
 fi
-require_exact_line "$LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1'"
-require_exact_line "$LAN_DEFAULTS" "uci -q set network.lan.netmask='255.255.255.0'"
+require_exact_line "$LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1/24'"
+require_exact_line "$LAN_DEFAULTS" "uci -q delete network.lan.netmask"
+if grep -Fxq "uci -q set network.lan.ipaddr='192.168.6.1'" "$LAN_DEFAULTS" \
+	|| grep -Fq "network.lan.netmask='255.255.255.0'" "$LAN_DEFAULTS"; then
+	echo 'ERROR: split IPv4/netmask defaults produce a /32 LAN on OpenWrt 25.12.' >&2
+	exit 1
+fi
 
 git init "$SOURCE_DIR"
 git -C "$SOURCE_DIR" remote add origin "$SOURCE_REPO"
@@ -121,8 +126,8 @@ if [[ ! -x "$COPIED_LAN_DEFAULTS" ]]; then
 	echo "ERROR: copied LAN defaults script is not executable: $COPIED_LAN_DEFAULTS" >&2
 	exit 1
 fi
-require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1'"
-require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q set network.lan.netmask='255.255.255.0'"
+require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q set network.lan.ipaddr='192.168.6.1/24'"
+require_exact_line "$COPIED_LAN_DEFAULTS" "uci -q delete network.lan.netmask"
 
 cd "$SOURCE_DIR"
 ./scripts/feeds update -a
@@ -351,6 +356,7 @@ NMBM data area: 480MiB, ending at 0x1e000000
 UBI partition: 474MiB (0x1da00000), starting at 0x600000
 Expected UBI total LEB capacity: about 459.2MiB before volumes
 Default LAN IPv4: 192.168.6.1/24 (255.255.255.0)
+LAN UCI storage: CIDR 192.168.6.1/24 (no separate netmask option)
 Source: official OpenWrt 25.12.5
 Source commit: $SOURCE_COMMIT
 Installer: minimal initramfs with SSH/SFTP only
@@ -393,12 +399,15 @@ cat > "$OUTPUT_DIR/FLASH-INSTRUCTIONS.txt" <<'EOF'
 7. Install without preserving old settings:
      sysupgrade -n /tmp/firmware.itb
 8. The permanent system also uses 192.168.6.1/24.
-9. This v4 image intentionally uses the kernel UBI volume required by the
+9. This v5 image intentionally uses the kernel UBI volume required by the
    verified 2024-03-23 custom U-Boot. Do not substitute the earlier v3 image,
    which targets a fit volume this U-Boot cannot start.
-10. If an earlier v2/v3 installer is currently running, do not sysupgrade
+10. v5 stores the LAN prefix in CIDR form (192.168.6.1/24). Do not use v4:
+    its split ipaddr/netmask defaults are normalized to 192.168.6.1/32 by
+    OpenWrt 25.12 after a cold boot, preventing normal IPv4 LAN access.
+11. If an earlier v2/v3/v4 installer is currently running, do not sysupgrade
     directly from it: its running device tree still targets fit. Re-enter the
-    U-Boot web page and upload this v4 initramfs-factory.ubi first.
+    U-Boot web page and upload this v5 initramfs-factory.ubi first.
 EOF
 
 rm -f "$OUTPUT_DIR/SHA256SUMS"
