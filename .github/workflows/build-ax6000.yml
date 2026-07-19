@@ -1,0 +1,76 @@
+name: Build official OpenWrt for Redmi AX6000 2G-512M
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - agent/ax6000-2g-512m-build
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out build definition
+        uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          packages=(
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential
+            bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk
+            gettext gcc-multilib g++-multilib gperf haveged help2man intltool lib32gcc-s1
+            libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev
+            libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool
+            libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp ninja-build p7zip p7zip-full
+            patch pkgconf python3 python3-pip python3-ply python3-docutils python3-pyelftools
+            qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs
+            unzip upx-ucl wget xmlto xxd zlib1g-dev zstd
+          )
+          available=()
+          for package in "${packages[@]}"; do
+            if apt-cache show "$package" >/dev/null 2>&1; then
+              available+=("$package")
+            else
+              echo "Skipping unavailable optional package: $package"
+            fi
+          done
+          sudo apt-get install -y "${available[@]}"
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ax6000-openwrt-25.12.5-${{ hashFiles('configs/**', 'patches/**', 'rootfs-overlay/**', 'scripts/**') }}
+          restore-keys: |
+            ax6000-openwrt-25.12.5-
+
+      - name: Build firmware
+        env:
+          BUILD_ROOT: ${{ runner.temp }}/ax6000-build
+          OUTPUT_DIR: ${{ github.workspace }}/output
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          JOBS: '2'
+        run: |
+          chmod +x scripts/build.sh scripts/verify-layout.sh
+          ./scripts/build.sh
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-25.12.5-ax6000-2g-512m-192.168.6.1-24-kernel-v5
+          path: output/
+          if-no-files-found: error
+          retention-days: 14

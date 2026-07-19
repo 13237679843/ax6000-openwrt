@@ -1,0 +1,16 @@
+#!/bin/sh
+
+uci -q set network.lan.ipaddr='192.168.6.1/24'
+uci -q delete network.lan.netmask
+uci -q commit network
+
+uci -q set system.@system[0].hostname='AX6000-2G-512M'
+uci -q commit system
+
+uci -q set luci.main.lang='zh_cn'
+if [ -d /www/luci-static/argon ]; then
+	uci -q set luci.main.mediaurlbase='/luci-static/argon'
+fi
+uci -q commit luci
+
+exit 0

@@ -1,0 +1,17 @@
+Device: Redmi AX6000
+Hardware: 2GiB RAM / 512MiB SPI-NAND
+Boot layout: custom U-Boot NMBM 512rom-490m
+Verified U-Boot: 2022.07-rc3 (2024-03-23 multi-layout build)
+Boot/rootdisk/sysupgrade UBI volume: kernel
+RAM range: 0x40000000 + 0x80000000
+NMBM data range: 0x00000000 + 0x1e000000 (480MiB)
+NMBM management reserve: 0x1e000000 + 0x02000000 (32MiB)
+UBI range: 0x600000 + 0x1da00000 (474MiB)
+Expected UBI total LEB capacity: about 459.2MiB before volumes
+Default LAN IPv4: 192.168.6.1/24 (255.255.255.0)
+LAN UCI storage: CIDR 192.168.6.1/24 (no separate netmask option)
+Source: openwrt/openwrt
+Release: OpenWrt 25.12.5
+Source commit: f0a60eee2fe051741c643ea6118718aae1ef17fb
+Package manager: apk
+Third-party packages: Argon, PassWall, OpenClash, HomeProxy
